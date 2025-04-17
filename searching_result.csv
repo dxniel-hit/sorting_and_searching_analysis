@@ -1,0 +1,12 @@
+Linear Search,10000,0.000012
+Linear Search,100000,0.000101
+Linear Search,1000000,0.000020
+Binary Search,10000,0.000006
+Binary Search,100000,0.000003
+Binary Search,1000000,0.000003
+Ternary Search,10000,0.000003
+Ternary Search,100000,0.000003
+Ternary Search,1000000,0.000002
+Jumping Search,10000,0.000016
+Jumping Search,100000,0.000145
+Jumping Search,1000000,0.001292

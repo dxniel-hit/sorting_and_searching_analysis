@@ -7,6 +7,7 @@
 #include <pthread.h>
 
 #define RESULTS_FILE "sorting_result.csv"
+#define SEARCH_RESULTS_FILE "searching_result.csv"
 #define MAX_ALGORITHMS 10
 #define MAX_NAME_LENGTH 50
 
@@ -26,6 +27,25 @@ typedef struct {
     double time;
 } SortResult;
 
+// Function declarations
+void generateFileOfNumbers(const char *numbers, int n);
+int *loadArrayFromFile(const char *filename, int *n);
+int checkFileExists(const char *filename);
+void measure_bubble_sort(int *arr, int n);
+void measure_quick_sort(int *arr, int n);
+void measure_stooge_sort(int *arr, int n);
+void measure_radix_sort(int *arr, int n);
+void measure_merge_sort(int *arr, int n);
+void measure_bitonic_sort(int *arr, int n);
+void measure_linear_search(int *arr, int n, int goal);
+void measure_binary_search(int *arr, int n, int goal);
+void measure_ternary_search(int *arr, int n, int goal);
+void measure_jumping_search(int *arr, int n, int goal);
+void fileFiller();
+void sortingBenchmark();
+void searchBenchmark();
+void menu();
+
 int compare_results(const void *a, const void *b) {
     const SortResult *ra = (const SortResult *)a;
     const SortResult *rb = (const SortResult *)b;
@@ -35,14 +55,24 @@ int compare_results(const void *a, const void *b) {
 }
 
 void show_results_chart_py() {
-    system("python3 script.py sorting_result.csv");
-
+    system("python3 sorting_visualization.py sorting_result.csv");
     #ifdef _WIN32
         system("start sorting_results.png");
     #elif __APPLE__
         system("open sorting_results.png");
     #else
         system("xdg-open sorting_results.png");
+    #endif
+}
+
+void show_results_search_py() {
+    system("python3 search_visualization.py searching_result.csv");
+    #ifdef _WIN32
+        system("start search_results.png");
+    #elif __APPLE__
+        system("open search_results.png");
+    #else
+        system("xdg-open search_results.png");
     #endif
 }
 
@@ -120,20 +150,6 @@ void show_results_chart() {
     #endif
 }
 
-// Function declarations
-void generateFileOfNumbers(const char *numbers, int n);
-int *loadArrayFromFile(const char *filename, int *n);
-int checkFileExists(const char *filename);
-void measure_bubble_sort(int *arr, int n);
-void measure_quick_sort(int *arr, int n);
-void measure_stooge_sort(int *arr, int n);
-void measure_radix_sort(int *arr, int n);
-void measure_merge_sort(int *arr, int n);
-void measure_bitonic_sort(int *arr, int n);
-void fileFiller();
-void sortingBenchmark();
-void menu();
-
 void write_result(const char *algorithm, int size, double time) {
     FILE *temp = fopen("temp_results.csv", "w");
     FILE *original = fopen(RESULTS_FILE, "r");
@@ -162,8 +178,58 @@ void write_result(const char *algorithm, int size, double time) {
     rename("temp_results.csv", RESULTS_FILE);
 }
 
+void write_search_result(const char *algorithm, int size, double time) {
+    FILE *temp = fopen("temp_search_results.csv", "w");
+    FILE *original = fopen(SEARCH_RESULTS_FILE, "r");
+    int exists = 0;
+    if (original) {
+        char line[256];
+        while (fgets(line, sizeof(line), original)) {
+            char buf_alg[50];
+            int buf_size;
+            sscanf(line, "%49[^,],%d,", buf_alg, &buf_size);
+
+            if (strcmp(buf_alg, algorithm) == 0 && buf_size == size) {
+                fprintf(temp, "%s,%d,%.6f\n", algorithm, size, time);
+                exists = 1;
+            } else {
+                fprintf(temp, "%s", line);
+            }
+        }
+        fclose(original);
+    }
+
+    if (!exists) fprintf(temp, "%s,%d,%.6f\n", algorithm, size, time);
+    fclose(temp);
+    remove(SEARCH_RESULTS_FILE);
+    rename("temp_search_results.csv", SEARCH_RESULTS_FILE);
+}
+
 int read_result(const char *algorithm, int size, double *time) {
     FILE *file = fopen(RESULTS_FILE, "r");
+    if (!file) return 0;
+
+    char line[100];
+    char saved_alg[50];
+    int saved_size;
+    double saved_time;
+
+    while (fgets(line, sizeof(line), file)) {
+        if (sscanf(line, "%49[^,],%d,%lf", saved_alg, &saved_size, &saved_time) == 3) {
+            if (strcmp(saved_alg, algorithm) == 0 && saved_size == size) {
+                *time = saved_time;
+                fclose(file);
+                return 1;
+            }
+        }
+    }
+
+    fclose(file);
+    return 0;
+}
+
+int read_search_result(const char *algorithm, int size, double *time) {
+    FILE *file = fopen(SEARCH_RESULTS_FILE, "r");
     if (!file) return 0;
 
     char line[100];
@@ -499,6 +565,13 @@ int get_max(int *arr, int n) {
         }
     }
     return max;
+}
+
+int get_min(int a, int b) {
+    if (a > b){
+        return a;
+    }
+    return b;
 }
 
 void counting_sort(int *arr, int n, int exp, int *progress, int total_passes, int current_pass) {
@@ -844,7 +917,153 @@ void measure_bitonic_sort(int *arr, int n) {
     printf("Tamaño: %d | Tiempo: %.6f segundos\n", n, time_taken);
 }
 
-// Handles the user input
+void measure_linear_search(int *arr, int n, int goal) {
+    double time_taken;
+    const char *alg_name = "Linear Search";
+
+    clock_t start = clock();
+
+    int found = 0;
+    int position = -1;
+    for (int i = 0; i < n; i++) {
+        if (arr[i] == goal) {
+            found = 1;
+            position = i;
+            break;
+        }
+    }
+
+    clock_t end = clock();
+    time_taken = ((double)(end - start)) / CLOCKS_PER_SEC;
+
+    write_search_result(alg_name, n, time_taken);
+
+    printf("Algoritmo: Búsqueda Lineal\n");
+    printf("Elemento %d %s\n", goal, found ? "encontrado" : "no encontrado");
+    if (found) printf("Posición: %d\n", position);
+    printf("Tiempo: %.6f segundos\n", time_taken);
+}
+
+void measure_binary_search(int *arr, int n, int goal) {
+    double time_taken;
+    const char *alg_name = "Binary Search";
+
+    clock_t start = clock();
+
+    int left = 0, right = n - 1;
+    int found = 0, position = -1;
+
+    while (left <= right) {
+        int mid = left + (right - left) / 2;
+
+        if (arr[mid] == goal) {
+            found = 1;
+            position = mid;
+            break;
+        }
+
+        if (arr[mid] < goal) {
+            left = mid + 1;
+        } else {
+            right = mid - 1;
+        }
+    }
+
+    clock_t end = clock();
+    time_taken = ((double)(end - start)) / CLOCKS_PER_SEC;
+
+    write_search_result(alg_name, n, time_taken);
+
+    printf("Algoritmo: Búsqueda Binaria\n");
+    printf("Elemento %d %s\n", goal, found ? "encontrado" : "no encontrado");
+    if (found) printf("Posición: %d\n", position);
+    printf("Tiempo: %.6f segundos\n", time_taken);
+}
+
+void measure_ternary_search(int *arr, int n, int goal) {
+    double time_taken;
+    const char *alg_name = "Ternary Search";
+
+    clock_t start = clock();
+
+    int left = 0, right = n - 1;
+    int found = 0, position = -1;
+
+    while (left <= right) {
+        int mid1 = left + (right - left) / 3;
+        int mid2 = right - (right - left) / 3;
+
+        if (arr[mid1] == goal) {
+            found = 1;
+            position = mid1;
+            break;
+        }
+
+        if (arr[mid2] == goal) {
+            found = 1;
+            position = mid2;
+            break;
+        }
+
+        if (goal < arr[mid1]) {
+            right = mid1 - 1;
+        } else if (goal > arr[mid2]) {
+            left = mid2 + 1;
+        } else {
+            left = mid1 + 1;
+            right = mid2 - 1;
+        }
+    }
+
+    clock_t end = clock();
+    time_taken = ((double)(end - start)) / CLOCKS_PER_SEC;
+
+    write_search_result(alg_name, n, time_taken);
+
+    printf("Algoritmo: Búsqueda Ternaria\n");
+    printf("Elemento %d %s\n", goal, found ? "encontrado" : "no encontrado");
+    if (found) printf("Posición: %d\n", position);
+    printf("Tiempo: %.6f segundos\n", time_taken);
+}
+
+void measure_jumping_search(int *arr, int n, int goal) {
+    double time_taken;
+    const char *alg_name = "Jumping Search";
+
+    clock_t start = clock();
+
+    int step = sqrt(n);
+    int prev = 0;
+    int found = 0, position = -1;
+
+    while (arr[get_min(step, n) - 1] < goal) {
+        prev = step;
+        step += sqrt(n);
+        if (prev >= n) break;
+    }
+
+    while (arr[prev] < goal) {
+        prev++;
+        if (prev == get_min(step, n)) break;
+    }
+
+    if (arr[prev] == goal) {
+        found = 1;
+        position = prev;
+    }
+
+    clock_t end = clock();
+    time_taken = ((double)(end - start)) / CLOCKS_PER_SEC;
+
+    write_search_result(alg_name, n, time_taken);
+
+    printf("Algoritmo: Búsqueda por Saltos\n");
+    printf("Elemento %d %s\n", goal, found ? "encontrado" : "no encontrado");
+    if (found) printf("Posición: %d\n", position);
+    printf("Tiempo: %.6f segundos\n", time_taken);
+}
+
+// handles the user input
 void fileFiller() {
     char input[100];
     char *endptr;
@@ -915,10 +1134,12 @@ void menu() {
     while (1) {
         printf("\n=== MENÚ PRINCIPAL ===\n");
         printf("1. Generador de archivos\n");
-        printf("2. Benchmark de algoritmos\n");
-        printf("3. Mostrar resultados gráficos\n");
-        printf("4. Salir\n");
-        printf("Seleccione una opción (1-4): ");
+        printf("2. Benchmark de algoritmos de ordenamiento\n");
+        printf("3. Benchmark de algoritmos de búsqueda\n");
+        printf("4. Mostrar resultados gráficos de ordenamiento\n");
+        printf("5. Mostrar resultados gráficos de búsqueda y captura\n");
+        printf("6. Salir\n");
+        printf("Seleccione una opción (1-6): ");
 
         if (fgets(input, sizeof(input), stdin) == NULL) {
             printf("Error leyendo entrada.\n");
@@ -929,7 +1150,7 @@ void menu() {
         const long int option = strtol(input, &endptr, 10);
 
         if (endptr == input || (*endptr != '\n' && *endptr != '\0') ||
-            errno == ERANGE || option < 1 || option > 4) {
+            errno == ERANGE || option < 1 || option > 6) {
             printf("Entrada inválida. Intente de nuevo.\n");
             continue;
             }
@@ -942,14 +1163,192 @@ void menu() {
                 sortingBenchmark();
                 break;
             case 3:
-                show_results_chart_py();
+                searchBenchmark();
                 break;
             case 4:
+                show_results_chart_py();
+                break;
+            case 5:
+                show_results_search_py();
+                break;
+            case 6:
                 printf("Saliendo del programa...\n");
                 exit(0);
         }
     }
 }
+
+int get_random_number_from_file(const char *filename) {
+    FILE *file = fopen(filename, "r");
+    if (!file) return -1;
+
+    int count = 0;
+    char ch;
+    while ((ch = fgetc(file)) != EOF) {
+        if (ch == '\n') count++;
+    }
+
+    if (count == 0) {
+        fclose(file);
+        return -1;
+    }
+
+    rewind(file);
+    int random_index = rand() % count;
+    int number = -1;
+
+    for (int i = 0; i <= random_index; i++) {
+        if (fscanf(file, "%d", &number) != 1) {
+            number = -1;
+            break;
+        }
+    }
+
+    fclose(file);
+    return number;
+}
+
+int compare_ints(const void *a, const void *b) {
+    int arg1 = *(const int *)a;
+    int arg2 = *(const int *)b;
+
+    if (arg1 < arg2) return -1;
+    if (arg1 > arg2) return 1;
+    return 0;
+}
+
+void searchBenchmark() {
+    char input[100];
+    char *endptr;
+    int goal = 0;
+    int use_random = 0;
+    const char *filenames[] = {"datos_10k.txt", "datos_100k.txt", "datos_1M.txt"};
+
+    while (1) {
+        printf("\n=== MENÚ DE BÚSQUEDA ===\n");
+        printf("1. Búsqueda Lineal\n");
+        printf("2. Búsqueda Binaria (requiere array ordenado)\n");
+        printf("3. Búsqueda Ternaria (requiere array ordenado)\n");
+        printf("4. Búsqueda por Saltos\n");
+        printf("5. Volver al menú principal\n");
+        printf("Seleccione un algoritmo (1-5): ");
+
+        if (fgets(input, sizeof(input), stdin) == NULL) {
+            printf("Error leyendo entrada.\n");
+            continue;
+        }
+
+        errno = 0;
+        const long int option = strtol(input, &endptr, 10);
+
+        if (endptr == input || (*endptr != '\n' && *endptr != '\0') ||
+            errno == ERANGE || option < 1 || option > 5) {
+            printf("Entrada inválida. Intente de nuevo.\n");
+            continue;
+        }
+
+        if (option == 5) return;
+
+        while (1) {
+            printf("\n=== SELECCIÓN DEL NÚMERO A BUSCAR ===\n");
+            printf("1. Usar número aleatorio de datos_10k.txt\n");
+            printf("2. Usar número aleatorio de datos_100k.txt\n");
+            printf("3. Usar número aleatorio de datos_1M.txt\n");
+            printf("4. Ingresar número manualmente (8 dígitos)\n");
+            printf("Seleccione una opción (1-4): ");
+
+            if (fgets(input, sizeof(input), stdin) == NULL) {
+                printf("Error leyendo entrada de selección.\n");
+                continue;
+            }
+
+            errno = 0;
+            const long int search_option = strtol(input, &endptr, 10);
+
+            if (endptr == input || (*endptr != '\n' && *endptr != '\0') ||
+                errno == ERANGE || search_option < 1 || search_option > 4) {
+                printf("Entrada inválida. Intente de nuevo.\n");
+                continue;
+            }
+
+            if (search_option >= 1 && search_option <= 3) {
+                goal = get_random_number_from_file(filenames[search_option - 1]);
+                if (goal == -1) {
+                    printf("Error al obtener número aleatorio. Genere los archivos primero.\n");
+                    continue;
+                }
+                use_random = 1;
+                printf("Número aleatorio seleccionado: %d\n", goal);
+            } else {
+                printf("Ingrese el número a buscar (8 dígitos): ");
+                if (fgets(input, sizeof(input), stdin) == NULL) {
+                    printf("Error leyendo entrada.\n");
+                    continue;
+                }
+
+                errno = 0;
+                goal = strtol(input, &endptr, 10);
+                if (endptr == input || (*endptr != '\n' && *endptr != '\0') ||
+                    errno == ERANGE || goal < 10000000 || goal > 99999999) {
+                    printf("Error: Debe ingresar un número de 8 dígitos.\n");
+                    continue;
+                }
+                use_random = 0;
+            }
+            break;
+        }
+
+        printf("\n=== RESULTADOS ===\n");
+
+        for (int i = 0; i < 3; i++) {
+            if (!checkFileExists(filenames[i])) {
+                printf("\nArchivo %s no encontrado. Genere los archivos primero.\n", filenames[i]);
+                continue;
+            }
+
+            int n;
+            int *arr = loadArrayFromFile(filenames[i], &n);
+            if (arr == NULL) continue;
+
+            // ordered array is needed
+            if (option == 2 || option == 3 || option == 4) {
+                printf("\nOrdenando el array para búsqueda binaria/ternaria/saltos...\n");
+                int *temp_arr = malloc(n * sizeof(int));
+                if (temp_arr == NULL) {
+                    printf("Error: No se pudo asignar memoria para el array temporal\n");
+                    free(arr);
+                    continue;
+                }
+                memcpy(temp_arr, arr, n * sizeof(int));
+                qsort(temp_arr, n, sizeof(int), compare_ints);
+                free(arr);
+                arr = temp_arr;
+                printf("Array ordenado correctamente.\n");
+            }
+
+            printf("\n--- Archivo: %s ---\n", filenames[i]);
+
+            switch (option) {
+                case 1:
+                    measure_linear_search(arr, n, goal);
+                    break;
+                case 2:
+                    measure_binary_search(arr, n, goal);
+                    break;
+                case 3:
+                    measure_ternary_search(arr, n, goal);
+                    break;
+                case 4:
+                    measure_jumping_search(arr, n, goal);
+                    break;
+            }
+            free(arr);
+            // using the same random number
+            // if (use_random) break;
+        }
+    }
+}
+
 
 void sortingBenchmark() {
     char input[100];
