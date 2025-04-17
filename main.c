@@ -6,8 +6,11 @@
 #include <math.h>
 #include <pthread.h>
 
-#define RESULTS_FILE "sorting_result.csv"
-#define SEARCH_RESULTS_FILE "searching_result.csv"
+#define RESULTS_FILE "csv/sorting_result.csv"
+#define SEARCH_RESULTS_FILE "csv/searching_result.csv"
+#define DATOS10K "data/datos_10k.txt"
+#define DATOS100K "data/datos_100k.txt"
+#define DATOS1M "data/datos_1M.txt"
 #define MAX_ALGORITHMS 10
 #define MAX_NAME_LENGTH 50
 
@@ -55,98 +58,24 @@ int compare_results(const void *a, const void *b) {
 }
 
 void show_results_chart_py() {
-    system("python3 sorting_visualization.py sorting_result.csv");
+    system("python3 scripts/sorting_visualization.py csv/sorting_result.csv");
     #ifdef _WIN32
         system("start sorting_results.png");
     #elif __APPLE__
-        system("open sorting_results.png");
+        system("open images/sorting_results.png");
     #else
         system("xdg-open sorting_results.png");
     #endif
 }
 
 void show_results_search_py() {
-    system("python3 search_visualization.py searching_result.csv");
+    system("python3 scripts/search_visualization.py csv/searching_result.csv");
     #ifdef _WIN32
         system("start search_results.png");
     #elif __APPLE__
-        system("open search_results.png");
+        system("open images/search_results.png");
     #else
         system("xdg-open search_results.png");
-    #endif
-}
-
-void show_results_chart() {
-    FILE *file = fopen(RESULTS_FILE, "r");
-    if (!file) {
-        printf("No se encontraron resultados para mostrar.\n");
-        return;
-    }
-
-    SortResult results[MAX_ALGORITHMS];
-    int count = 0;
-    char line[256];
-
-    // read all results
-    while (fgets(line, sizeof(line), file) && count < MAX_ALGORITHMS) {
-        sscanf(line, "%49[^,],%d,%lf", results[count].algorithm, &results[count].size, &results[count].time);
-        count++;
-    }
-    fclose(file);
-
-    // merge result per time
-    qsort(results, count, sizeof(SortResult), compare_results);
-
-    // datafile for gnuplot
-    FILE *gnuplot_data = fopen("chart_data.dat", "w");
-    if (!gnuplot_data) {
-        printf("Error al crear archivo de datos para el gráfico.\n");
-        return;
-    }
-
-    for (int i = 0; i < count; i++) {
-        // label creation, algo name and time it took
-        char label[100];
-        snprintf(label, sizeof(label), "%s (%d)", results[i].algorithm, results[i].size);
-
-        fprintf(gnuplot_data, "\"%s\" %f\n", label, results[i].time);
-    }
-    fclose(gnuplot_data);
-
-    // script creation for gnuplot
-    FILE *gnuplot_script = fopen("plot_script.gp", "w");
-    if (!gnuplot_script) {
-        printf("Error al crear script de GNUplot.\n");
-        return;
-    }
-
-    fprintf(gnuplot_script,
-        "set terminal pngcairo size 1024,768 enhanced font 'Verdana,10'\n"
-        "set output 'sorting_results.png'\n"
-        "set style data histograms\n"
-        "set style histogram rowstacked\n"
-        "set style fill solid border -1\n"
-        "set boxwidth 0.75\n"
-        "set title 'Tiempos de Ejecución de Algoritmos de Ordenamiento'\n"
-        "set ylabel 'Tiempo (segundos)'\n"
-        "set xtics rotate by -45\n"
-        "plot 'chart_data.dat' using 2:xtic(1) notitle\n"
-    );
-    fclose(gnuplot_script);
-
-    // execute gnuplot
-    system("gnuplot plot_script.gp");
-
-    printf("\nGráfico generado como 'sorting_results.png'\n");
-
-    // opens the image automatically
-    #ifdef _WIN32
-        system("start sorting_results.png");
-    #elif __APPLE__
-        system("open sorting_results.png");
-    #else
-    // this is assumable
-        system("xdg-open sorting_results.png");
     #endif
 }
 
@@ -1110,13 +1039,13 @@ void fileFiller() {
         // Input valid, process the option, no default as WE do NOT respect switch
         switch (option) {
             case 1:
-                generateFileOfNumbers("datos_10k.txt", 10000);
+                generateFileOfNumbers(DATOS10K, 10000);
                 break;
             case 2:
-                generateFileOfNumbers("datos_100k.txt", 100000);
+                generateFileOfNumbers(DATOS100K, 100000);
                 break;
             case 3:
-                generateFileOfNumbers("datos_1M.txt", 1000000);
+                generateFileOfNumbers(DATOS1M, 1000000);
                 break;
             case 4:
                 printf("\n");
@@ -1222,7 +1151,7 @@ void searchBenchmark() {
     char *endptr;
     int goal = 0;
     int use_random = 0;
-    const char *filenames[] = {"datos_10k.txt", "datos_100k.txt", "datos_1M.txt"};
+    const char *filenames[] = {DATOS10K, DATOS100K, DATOS1M};
 
     while (1) {
         printf("\n=== MENÚ DE BÚSQUEDA ===\n");
@@ -1381,7 +1310,7 @@ void sortingBenchmark() {
 
         if (option == 7) return;
 
-        const char *filenames[] = {"datos_10k.txt", "datos_100k.txt", "datos_1M.txt"};
+        const char *filenames[] = {DATOS10K, DATOS100K, DATOS1M};
 
         printf("\n=== RESULTADOS ===\n");
 
